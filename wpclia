@@ -318,14 +318,6 @@ while true;do
 
 
 fi
-esac
-
-	 case $REPLY in
-
-
-
-		[m])clear
-		exit 1
 
 esac
 done
