@@ -1,0 +1,331 @@
+#!/bin/bash
+set -e
+
+#Couleur
+CSI="\033["
+CEND="${CSI}0m"
+CRED="${CSI}1;31m"
+CGREEN="${CSI}1;32m"
+CYELLOW="${CSI}1;33m"
+CBLUE="${CSI}1;34m"
+CPURPLE="${CSI}1;35m"
+CCYAN="${CSI}1;36m"
+CBROWN="${CSI}0;33m"
+
+
+
+#      LES FONCTIONS
+
+
+# Fonction SmallLoader - chargement
+smallLoader () {
+echo -ne '[ + + + + + + + + + ]2s \r'
+sleep 1
+echo -ne '[ + + + + + + + + + ] 1s \r'
+sleep 1
+echo -ne '[ + + + + + + + + + ] \r'
+echo -ne '\n'
+}
+
+pause (){
+echo -n -e "\n\n"
+read -p "$*"
+}
+
+# Fonction creation de fichier  .htaccess de Wordpress par defaut
+create_htaccess () {
+cat <<EOT >> .htaccess
+# BEGIN WordPress
+RewriteEngine On
+RewriteBase /
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
+# END WordPress
+EOT
+}
+
+
+# Fonction restauration du fichier htaccess d'origine avant execution de ce script.
+restorehtaccess () {
+rm .htaccess
+pause mv htaccessold .htaccess
+}
+
+
+
+# Fonction creation php.ini avec 256mo de memoire
+phpini () {
+cat <<EOT>> php.ini
+memory_limit=256M;
+EOT
+}
+
+# Fonction copie recursive php.ini
+copiephp () {
+find -type d ! -name "." -exec cp php.ini {} \;
+}
+
+
+
+
+
+
+# Verif si WP Cli est present
+if [ ! $(which wp) > /dev/null ] ; then
+        echo -e "${CGREEN}Ce script a besoin de wp-cli.\nPour plus d'info: wp-cli.org ou github.com/wp-cli/wp-cli/wiki. ${CEND}" >&2
+exit 1
+fi
+
+
+
+# Lancement du script - 1ere partie presentation
+clear
+echo -n -e "\n\n${CGREEN}Ceci est script de debuggage Wordpress ${CEND}\n\n"
+read -p "Veux tu vraiment le lancer ?  [Y/N]" -n 1 -r
+
+if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+		echo -n -e "\n\n${CRED}AVANT TOUTES MANIPULATIONS - VEUILLEZ FAIRE UN DUMP DE LA DB ( choix > s < depuis le menu ) ${CEND}\n\n\\n"
+		pause "Press [Entree] pour continuer..."
+		echo -n -e "\n\n${CPURPLE}Demarrage du script WP ${CEND}\n\n\\n"
+                smallLoader
+        else
+                echo -n -e "\nA bientot\n\n"
+                clear
+                exit 1
+                fi
+
+#clear
+while true;do
+
+
+
+# Les differents choix:
+	clear
+
+
+
+
+	# Les verifications
+
+
+        echo -n -e "\n${CGREEN}Choix des verifications :\n============================${CEND}\n\n"
+	echo -n -e "- 1  Verifier la version de wordpress\n"
+	echo -n -e "- 2  Verifier la liste des themes et plugin\n"
+	echo -n -e "- 3  Verifier l'integrite des fichiers de Wordpress\n"
+	echo -n -e "- 4  Telecharger Wordpress FR par dessus celui deja present\n"
+	echo -n -e "- 5  Nombre de Hit par nom de domaine\n"
+	echo -n -e "- 6  Faire un STRACE de l'index.php\n"
+
+	# Les mises a jours
+
+	echo -n -e "\n${CGREEN}Choix des mises a jours :\n==========================${CEND}\n\n"
+	echo -n -e "- a  Mettre a jour Wordpress\n"
+	echo -n -e "- b  Mettre a jour tous les plugins\n"
+	echo -n -e "- c  Mettre a jour tous les themes\n"
+	echo -n -e "- d  Tout mettre a jour d'un coup\n\n"
+
+
+
+	# Les Options
+
+        echo -n -e "\n${CGREEN}Options:\n==========${CEND}\n\n"
+        echo -n -e "- s  Faire une sauvegarde de la base de donnees\n"
+        echo -n -e "- o  Optimiser la base de donnees\n"
+        echo -n -e "- i  Copier recursivement un php.ini avec 256M\n"
+        echo -n -e "- x  Desactiver tous les plugins\n"
+        echo -n -e "- y  Activer tous les plugins\n"
+	echo -n -e "- f  Creer un htaccess par defaut Wordpress et sauvegarder celui deja present\n"
+        echo -n -e "- r  Restaurer le fichier htaccess d'origine de ce site web\n"
+	echo -n -e "- u  Creer un administrateur - login: test pass: test1234\n"
+	echo -n -e "- t  Supprimer l'administrateur test\n"
+	echo -n -e "- k  Appliquer les droits par defaut Wordpress sur les fichiers et repertoires\n"
+	echo -n -e "- q  Quittez le script\n\n"
+
+
+        read -p "Que choisis-tu ?" REPLY
+
+
+	case $REPLY in
+
+                [1])clear
+                echo -n -e "\nCe WordPress est en version\n "
+                wp core version
+                pause "Press [Entree] pour continuer..."
+
+                ;;
+
+                [2])clear
+                echo -n -e "\nNombre de plugins -> "
+                wp plugin status
+                echo -n -e "\nNombre de themes -> "
+                wp theme status
+                pause "Press [Entree] pour continuer..."
+
+                ;;
+
+                [3])clear
+                echo -n -e "\nVerification de l'integrite des fichiers de Wordpress\n\n "
+                echo
+                wp core verify-checksums
+                pause "Press [Entree] pour continuer..."
+
+                ;;
+
+		[4])clear
+                echo -n -e "\nTelechargement de Wordpress Fr en cours\n\n "
+                echo
+                wp core download --locale=fr_FR --force
+                pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[5])clear
+                echo -n -e " Voici le nombre de Hit par domaine\n"
+                cat $(echo $PWD | grep -o "^.*d[0-9]*/htdocs/")/logs/access.log.current |awk '{print $11}' |sort |uniq -c |sort -n |tail
+                pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[6])clear
+                strace php6 index.php
+		pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[a])clear
+                echo -n -e "\nMise a jour de Wordpress\n\n"
+                wp core update
+                pause "Press [Entree] pour continuer..."
+
+                ;;
+
+                [b])clear
+
+                echo -n -e "\nMise a jour des plugins\n\n"
+                wp plugin update --all
+                pause "Press [Entree] pour continuer..."
+
+                ;;
+
+                [c])clear
+                echo -n -e "\nMise a jour les themes"
+                wp plugin theme --all
+                pause "Press [Entree] pour continuer..."
+
+                ;;
+
+                [d])clear
+                echo -n -e "\nTout va etre mis a jour d'un coup\n\n"
+                echo -n -e "\nMise a jour de Wordpress"
+                wp core update
+                echo -n -e "\nMise a jour des plugins"
+                wp plugin update --all
+                echo -n -e "\nMise a jour les themes"
+                wp theme update --all
+                echo -n -e "\nTout est desormais a jour ! "
+		pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[f])clear
+                echo -n -e " Le fichier htaccess d'origine a ete renomme en htaccessold "
+		mv .htaccess htaccessold
+		create_htaccess
+		pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[k])clear
+		echo -n -e "Application des droits par defaut Wordpress sur les fichiers et repertoires en cours...\n"
+		find . -type f -exec chmod 0644 {} \; && find . -type d -exec chmod 0755 {} \;
+		echo -n -e "\n Les fichiers sont en 644 et les repertoires en 775 a partir du repertoire courant\n"
+                pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[o])clear
+                echo -n -e "\nOptimisation de la base de donnees en cours\n"
+                wp db optimize
+                echo -n -e "\nLa base de donnees a ete optimisee\n\n"
+		pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[q])clear
+                exit 1
+
+		;;
+
+                [r])clear
+                echo -n -e "Le fichier .htaccess est a nouveau celui d'origine du site web"
+                restorehtaccess
+                pause "Press [Entree] pour continuer..."
+
+		;;
+
+                [s])clear
+                echo -n -e "Voici le fichier de sauvegarde de la base de donnees\n"
+                wp db dump
+                pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[t])clear
+		wp user delete test
+                echo -n -e "L'administrateur - test - vient d'etre supprime"
+                pause "Press [Entree] pour continuer..."
+
+		;;
+
+		[u])clear
+		wp user create test test@test.com --pass=test1234 --role=administrator
+		echo -n -e "L'administrateur - test - vient d'etre cree"
+		pause "Press [Entree] pour continuer..."
+
+		;;
+
+                [x])clear
+                echo -n -e "Tous les plugins ont ete desactives\n"
+                wp  plugin deactivate --all
+                pause "Press [Entree] pour continuer..."
+
+                ;;
+
+                [y])clear
+                echo -n -e "Tous les plugins ont ete actives\n"
+                wp  plugin activate --all
+                pause "Press [Entree] pour continuer..."
+
+                ;;
+
+                [i])clear
+                echo -n -e "\nCopier recursivement un php.ini avec 256M\n"
+                if [ -f php.ini ];
+                then
+                echo -n -e "Le fichier php.ini existant a ete renomme en phpini_old\n"
+                mv php.ini phpini_old
+                phpini
+                copiephp
+                pause "Press [Entree] pour continuer..."
+                else
+                phpini
+                copiephp
+
+                pause "Press [Entree] pour continuer..."
+
+
+fi
+esac
+
+	 case $REPLY in
+
+
+
+		[m])clear
+		exit 1
+
+esac
+done
